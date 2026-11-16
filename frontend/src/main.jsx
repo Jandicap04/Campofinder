@@ -15,24 +15,30 @@ import {
   changeAdminUserPassword,
   courtSlots,
   courtImageUrl,
+  createAdvertiserRecord,
   createAdminUser,
   createReservation,
+  deleteBrandAsset,
   deleteAdminUser,
   finishLiveMatch,
+  getAdvertisers,
   getAdminOverview,
   getAdminReservations,
   getCourtAvailability,
   getCourts,
   getLiveMatch,
   getLiveMatches,
+  getPublicAdvertisers,
   getProfile,
   getReservations,
   saveTimer as saveCourtTimer,
   startLiveMatch,
   setUserBlocked,
+  updateAdvertiserLogo,
   updateLiveScore,
   updateAdminUser,
   updateBlockedSlot,
+  uploadBrandAsset,
 } from "./data";
 import { isSupabaseConfigured, supabase } from "./supabase";
 import "./styles.css";
@@ -412,6 +418,14 @@ function daysUntil(dateString) {
   return Math.ceil((target - now) / (1000 * 60 * 60 * 24));
 }
 
+function getBrandAssetPath(logoUrl) {
+  const marker = "/storage/v1/object/public/brand-assets/";
+  const url = String(logoUrl || "");
+  const markerIndex = url.indexOf(marker);
+  if (markerIndex < 0) return "";
+  return decodeURIComponent(url.slice(markerIndex + marker.length).split("?")[0]);
+}
+
 function HomePage() {
   const { courts, error, availabilityError, now } = useCourtsFeed();
   const featured = courts.slice(0, 3);
@@ -522,7 +536,29 @@ function AdvertisingSpotlight() {
 }
 
 function BrandPartnersSection() {
-  const partners = advertiserSeed.filter((advertiser) => advertiser.status === "activo");
+  const [partners, setPartners] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    getPublicAdvertisers()
+      .then((items) => {
+        if (active) {
+          setPartners(items);
+          setError("");
+        }
+      })
+      .catch((reason) => {
+        if (active) setError(reason.message);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   return (
     <section className="promo-partners section">
@@ -534,13 +570,14 @@ function BrandPartnersSection() {
           </div>
         </div>
         <div className="promo-brand-grid">
-          {partners.map((advertiser) => (
+          {error ? <ErrorPanel message={error} /> : loading ? <span className="muted-copy">Cargando patrocinadores…</span> : partners.map((advertiser) => (
             <div className="promo-brand-card" key={advertiser.id}>
-              <img src={advertiser.logo} alt={advertiser.company} />
+              {advertiser.logo && <img src={advertiser.logo} alt="" />}
               <strong>{advertiser.company}</strong>
               <small>{advertiser.city}</small>
             </div>
           ))}
+          {!loading && !error && !partners.length && <p className="muted-copy">Próximamente anunciaremos nuestros aliados.</p>}
         </div>
       </div>
     </section>
@@ -1149,9 +1186,40 @@ function reservedTeamName(playerName) {
 }
 
 function AdminAdvertisingPanel() {
-  const [advertisers, setAdvertisers] = useState(advertiserSeed);
+  const { notify } = useAuth();
+  const [advertisers, setAdvertisers] = useState([]);
   const [campaigns, setCampaigns] = useState(campaignSeed);
   const [placements, setPlacements] = useState(placementSeed);
+  const [advertisersLoading, setAdvertisersLoading] = useState(true);
+  const [advertisersError, setAdvertisersError] = useState("");
+  const [busyAdvertiserId, setBusyAdvertiserId] = useState("");
+  const [campaignAdvertiser, setCampaignAdvertiser] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    getAdvertisers()
+      .then((items) => {
+        if (active) {
+          setAdvertisers(items);
+          setAdvertisersError("");
+        }
+      })
+      .catch((reason) => {
+        if (active) setAdvertisersError(reason.message);
+      })
+      .finally(() => {
+        if (active) setAdvertisersLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!advertisers.some((advertiser) => advertiser.company === campaignAdvertiser)) {
+      setCampaignAdvertiser(advertisers[0]?.company || "");
+    }
+  }, [advertisers, campaignAdvertiser]);
 
   const summary = {
     activeAds: campaigns.filter((campaign) => campaign.status === "activa").length,
@@ -1167,27 +1235,107 @@ function AdminAdvertisingPanel() {
     revenue: campaigns.reduce((sum, campaign) => sum + Number(campaign.contractedPrice || 0), 0),
   };
 
-  function addAdvertiser(event) {
+  async function addAdvertiser(event) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     const company = String(form.get("company") || "").trim();
     if (!company) return;
     const nextAdvertiser = {
-      id: `advertiser-${company.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
       company,
       description: String(form.get("description") || ""),
-      logo: String(form.get("logo") || "/imagenes/logo1.png"),
       contact: String(form.get("contact") || "Contacto"),
-      email: String(form.get("email") || "contacto@campofinder.co"),
+      email: String(form.get("email") || ""),
       phone: String(form.get("phone") || ""),
       whatsapp: String(form.get("whatsapp") || ""),
-      website: String(form.get("website") || "https://campofinder.co"),
-      social: String(form.get("social") || "@campofinder"),
-      city: String(form.get("city") || "Bogotá"),
+      website: String(form.get("website") || ""),
+      social: String(form.get("social") || ""),
+      city: String(form.get("city") || ""),
       status: String(form.get("status") || "activo"),
     };
-    setAdvertisers((current) => [nextAdvertiser, ...current]);
-    event.currentTarget.reset();
+    try {
+      const savedAdvertiser = await createAdvertiserRecord(nextAdvertiser);
+      setAdvertisers((current) => [...current, savedAdvertiser].sort((left, right) => left.company.localeCompare(right.company)));
+      setAdvertisersError("");
+      formElement.reset();
+      notify("Anunciante registrado.");
+    } catch (reason) {
+      notify(reason.message);
+    }
+  }
+
+  async function uploadAdvertiserImage(advertiser, file) {
+    const extensionsByType = {
+      "image/png": "png",
+      "image/jpeg": "jpg",
+      "image/webp": "webp",
+      "image/svg+xml": "svg",
+    };
+    const extension = extensionsByType[file.type];
+    if (!extension) {
+      notify("El logo debe ser PNG, JPG, WEBP o SVG.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      notify("La imagen no puede superar 5 MB.");
+      return;
+    }
+
+    setBusyAdvertiserId(advertiser.id);
+    let uploadedPath = "";
+    try {
+      uploadedPath = `advertisers/${advertiser.id}/${Date.now()}-${Math.random().toString(36).slice(2, 10)}.${extension}`;
+      const logoUrl = await uploadBrandAsset(uploadedPath, file);
+      try {
+        await updateAdvertiserLogo(advertiser.id, logoUrl);
+      } catch (reason) {
+        try {
+          await deleteBrandAsset(uploadedPath);
+        } catch (cleanupReason) {
+          throw new Error(`${reason.message} No se pudo limpiar el archivo cargado: ${cleanupReason.message}`);
+        }
+        throw reason;
+      }
+
+      setAdvertisers((current) => current.map((item) => item.id === advertiser.id ? { ...item, logo: logoUrl } : item));
+      const previousPath = getBrandAssetPath(advertiser.logo);
+      if (previousPath) {
+        try {
+          await deleteBrandAsset(previousPath);
+        } catch (reason) {
+          notify(`Logo actualizado, pero no se pudo borrar la imagen anterior: ${reason.message}`);
+          return;
+        }
+      }
+      notify("Logo del patrocinador actualizado.");
+    } catch (reason) {
+      notify(reason.message);
+    } finally {
+      setBusyAdvertiserId("");
+    }
+  }
+
+  async function removeAdvertiserImage(advertiser) {
+    if (!advertiser.logo) return;
+    setBusyAdvertiserId(advertiser.id);
+    try {
+      await updateAdvertiserLogo(advertiser.id, null);
+      setAdvertisers((current) => current.map((item) => item.id === advertiser.id ? { ...item, logo: "" } : item));
+      const path = getBrandAssetPath(advertiser.logo);
+      if (path) {
+        try {
+          await deleteBrandAsset(path);
+        } catch (reason) {
+          notify(`Imagen desvinculada, pero no se pudo borrar del almacenamiento: ${reason.message}`);
+          return;
+        }
+      }
+      notify("Imagen del patrocinador eliminada.");
+    } catch (reason) {
+      notify(reason.message);
+    } finally {
+      setBusyAdvertiserId("");
+    }
   }
 
   function addCampaign(event) {
@@ -1237,6 +1385,7 @@ function AdminAdvertisingPanel() {
           <h2>Panel general<br /><em>de monetización.</em></h2>
         </div>
       </div>
+      {advertisersError && <ErrorPanel message={advertisersError} />}
       <div className="ad-stats-grid">
         <article className="ad-stat">
           <small>Anuncios activos</small>
@@ -1286,19 +1435,48 @@ function AdminAdvertisingPanel() {
             <label>Página web<input name="website" type="url" /></label>
             <label>Redes sociales<input name="social" /></label>
             <label>Ciudad o zona<input name="city" /></label>
-            <label>Logo<input name="logo" defaultValue="/imagenes/logo1.png" /></label>
             <label>Estado<select name="status" defaultValue="activo"><option value="activo">Activo</option><option value="pausado">Pausado</option></select></label>
             <label className="field-span-full">Descripción<textarea name="description" rows="3" /></label>
-            <button className="button button-dark" type="submit">Registrar anunciante</button>
+            <p className="ad-upload-hint field-span-full">Después de registrar el patrocinador, puedes subir o quitar su logo desde la lista.</p>
+            <button className="button button-dark" type="submit" disabled={advertisersLoading}>Registrar anunciante</button>
           </form>
           <div className="ad-list">
-            {advertisers.map((advertiser) => (
+            {advertisersLoading ? <p className="muted-copy">Cargando patrocinadores…</p> : advertisers.map((advertiser) => (
               <div className="ad-row" key={advertiser.id}>
-                <div>
+                {advertiser.logo
+                  ? <img className="ad-sponsor-logo" src={advertiser.logo} alt={`Logo de ${advertiser.company}`} />
+                  : <span className="ad-sponsor-logo ad-sponsor-logo-empty" aria-hidden="true">{advertiser.company.slice(0, 2).toUpperCase()}</span>}
+                <div className="ad-sponsor-details">
                   <strong>{advertiser.company}</strong>
-                  <small>{advertiser.city} · {advertiser.contact}</small>
+                  <small>{[advertiser.city, advertiser.contact].filter(Boolean).join(" · ") || "Sin datos de contacto"}</small>
+                  <span className={`status-pill ${advertiser.status === "activo" ? "status-live" : "status-paused"}`}>{advertiser.status}</span>
                 </div>
-                <span className={`status-pill ${advertiser.status === "activo" ? "status-live" : "status-paused"}`}>{advertiser.status}</span>
+                <div className="ad-image-actions">
+                  <label className="button button-outline button-small ad-upload-button">
+                    {busyAdvertiserId === advertiser.id ? "Guardando…" : advertiser.logo ? "Cambiar logo" : "Subir logo"}
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                      aria-label={`Subir logo de ${advertiser.company}`}
+                      disabled={Boolean(busyAdvertiserId)}
+                      onChange={(event) => {
+                        const file = event.currentTarget.files?.[0];
+                        if (file) void uploadAdvertiserImage(advertiser, file);
+                        event.currentTarget.value = "";
+                      }}
+                    />
+                  </label>
+                  {advertiser.logo && (
+                    <button
+                      className="button button-danger button-small"
+                      type="button"
+                      disabled={Boolean(busyAdvertiserId)}
+                      onClick={() => removeAdvertiserImage(advertiser)}
+                    >
+                      Quitar
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
           </div>
@@ -1310,7 +1488,7 @@ function AdminAdvertisingPanel() {
           </div>
           <form className="ad-form-grid" onSubmit={addCampaign}>
             <label>Nombre<input name="name" required /></label>
-            <label>Anunciante<select name="advertiser" defaultValue={advertisers[0]?.company || "Patagonia Sports"}>
+            <label>Anunciante<select name="advertiser" value={campaignAdvertiser} onChange={(event) => setCampaignAdvertiser(event.target.value)} required>
               {advertisers.map((advertiser) => <option key={advertiser.id} value={advertiser.company}>{advertiser.company}</option>)}
             </select></label>
             <label>Tipo de publicidad<select name="type" defaultValue="Banner principal"><option value="Banner principal">Banner principal</option><option value="Patrocinador destacado">Patrocinador destacado</option><option value="Catálogo">Catálogo</option><option value="Aliados comerciales">Aliados comerciales</option></select></label>

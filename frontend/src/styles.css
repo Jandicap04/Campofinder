@@ -425,6 +425,7 @@ main { flex: 1; }
 .ad-form-grid textarea { min-height: 72px; resize: vertical; }
 .ad-form-grid .button { grid-column: 1 / -1; }
 .field-span-full { grid-column: 1 / -1; }
+.ad-upload-hint { margin: 0; color: var(--muted); font-size: 10px; }
 .ad-list, .placement-list { display: grid; gap: 10px; }
 .ad-row, .placement-row, .campaign-card {
   display: grid; gap: 10px;
@@ -434,6 +435,14 @@ main { flex: 1; }
   background: #f9faf8;
 }
 .ad-row, .placement-row { grid-template-columns: 1fr auto; align-items: center; }
+.ad-row { grid-template-columns: 48px minmax(0, 1fr) auto; }
+.ad-sponsor-logo { width: 48px; height: 48px; padding: 4px; border: 1px solid var(--line); border-radius: 5px; background: #fff; object-fit: contain; }
+.ad-sponsor-logo-empty { display: grid; place-items: center; color: var(--green); background: #edf4e8; font: 700 16px var(--display); }
+.ad-sponsor-details { display: grid; justify-items: start; gap: 4px; min-width: 0; }
+.ad-image-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 7px; }
+.ad-upload-button { position: relative; overflow: hidden; cursor: pointer; }
+.ad-upload-button input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.ad-upload-button input:disabled { cursor: wait; }
 .ad-row strong, .placement-row strong, .campaign-card strong { font-size: 14px; }
 .ad-row small, .placement-row small, .campaign-card small { color: var(--muted); font-size: 10px; }
 .status-pill {
@@ -573,6 +582,7 @@ main { flex: 1; }
   .nearby-court-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .nearby-map-content iframe { height: 330px; }
   .admin-panel { grid-template-columns: 1fr; }
+  .admin-ad-layout { grid-template-columns: 1fr; }
   .admin-slot-form { grid-template-columns: repeat(3, 1fr); }
   .admin-slot-form .button { grid-column: 1 / -1; }
 }
@@ -645,6 +655,9 @@ main { flex: 1; }
   .admin-tabs { gap: 16px; overflow: auto; }
   .admin-tabs button { white-space: nowrap; font-size: 10px; }
   .admin-court-card { grid-template-columns: 94px 1fr; gap: 12px; padding: 10px; }
+  .ad-row { grid-template-columns: 42px minmax(0, 1fr); align-items: start; }
+  .ad-sponsor-logo { width: 42px; height: 42px; }
+  .ad-image-actions { grid-column: 2; justify-content: flex-start; }
   .admin-court-card > img { width: 94px; height: 112px; }
   .admin-court-main h3 { font-size: 15px; }
   .admin-court-main > p { max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

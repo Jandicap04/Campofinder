@@ -59,6 +59,23 @@ function mapLiveMatch(row) {
   };
 }
 
+function mapAdvertiser(row) {
+  return {
+    id: row.id,
+    company: row.company_name,
+    description: row.description || "",
+    logo: row.logo_url || "",
+    contact: row.contact_name || "",
+    email: row.email || "",
+    phone: row.phone || "",
+    whatsapp: row.whatsapp || "",
+    website: row.website || "",
+    social: row.social_handle || "",
+    city: row.city || "",
+    status: row.status === "active" ? "activo" : row.status === "paused" ? "pausado" : "archivado",
+  };
+}
+
 export function courtImageUrl(image) {
   if (image && /^https?:\/\//i.test(image)) return image;
   const filename = (image || "imagenes/logo1.png")
@@ -180,6 +197,78 @@ export async function getAdminReservations() {
       playerName: player?.nombre?.trim() || player?.correo?.split("@")[0] || "Jugador",
     };
   });
+}
+
+export async function getAdvertisers() {
+  const rows = unwrap(
+    await supabase
+      .from("advertisers")
+      .select("id, company_name, description, logo_url, contact_name, email, phone, whatsapp, website, social_handle, city, status")
+      .order("company_name"),
+  );
+  return (rows || []).map(mapAdvertiser);
+}
+
+export async function getPublicAdvertisers() {
+  const feed = unwrap(await supabase.rpc("get_active_advertising_feed"));
+  return (feed?.advertisers || []).map((advertiser) => ({
+    id: advertiser.id,
+    company: advertiser.company_name,
+    description: advertiser.description || "",
+    logo: advertiser.logo_url || "",
+    city: advertiser.city || "",
+    website: advertiser.website || "",
+  }));
+}
+
+export async function createAdvertiserRecord(advertiser) {
+  const row = unwrap(
+    await supabase
+      .from("advertisers")
+      .insert({
+        company_name: advertiser.company,
+        description: advertiser.description,
+        contact_name: advertiser.contact,
+        email: advertiser.email,
+        phone: advertiser.phone,
+        whatsapp: advertiser.whatsapp,
+        website: advertiser.website,
+        social_handle: advertiser.social,
+        city: advertiser.city,
+        status: advertiser.status === "pausado" ? "paused" : "active",
+      })
+      .select("id, company_name, description, logo_url, contact_name, email, phone, whatsapp, website, social_handle, city, status")
+      .single(),
+  );
+  return mapAdvertiser(row);
+}
+
+export async function updateAdvertiserLogo(advertiserId, logoUrl) {
+  unwrap(
+    await supabase
+      .from("advertisers")
+      .update({ logo_url: logoUrl })
+      .eq("id", advertiserId)
+      .select("id")
+      .single(),
+  );
+}
+
+export async function uploadBrandAsset(path, file) {
+  unwrap(
+    await supabase.storage
+      .from("brand-assets")
+      .upload(path, file, {
+        cacheControl: "3600",
+        contentType: file.type,
+        upsert: false,
+      }),
+  );
+  return supabase.storage.from("brand-assets").getPublicUrl(path).data.publicUrl;
+}
+
+export async function deleteBrandAsset(path) {
+  unwrap(await supabase.storage.from("brand-assets").remove([path]));
 }
 
 export async function startLiveMatch({ courtId, reservationId, homeTeam, awayTeam }) {
