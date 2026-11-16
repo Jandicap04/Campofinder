@@ -281,6 +281,137 @@ function RequireAdmin({ children }) {
   return user.role === "administrador" ? children : <Navigate to="/catalogo" replace />;
 }
 
+const advertiserSeed = [
+  {
+    id: "patagonia-sports",
+    company: "Patagonia Sports",
+    description: "Preparación física, equipamiento y contenido deportivo para comunidades activas.",
+    logo: "/imagenes/logo1.png",
+    contact: "María López",
+    email: "hola@patagonasports.co",
+    phone: "+57 310 555 1200",
+    whatsapp: "+57 310 555 1200",
+    website: "https://patagonasports.co",
+    social: "@patagonasports",
+    city: "Bogotá",
+    status: "activo",
+  },
+  {
+    id: "sinergia-bogota",
+    company: "Sinergia Bogotá",
+    description: "Marca local enfocada en bienestar, eventos deportivos y networking del barrio.",
+    logo: "/imagenes/cancha1.png",
+    contact: "Carlos Pulido",
+    email: "team@sinergiabo.com",
+    phone: "+57 321 998 7710",
+    whatsapp: "+57 321 998 7710",
+    website: "https://sinergiabo.com",
+    social: "@sinergia.bogota",
+    city: "Cundinamarca",
+    status: "activo",
+  },
+  {
+    id: "blue-6-live",
+    company: "Blue 6 Live",
+    description: "Segmento premium para fútbol urbano, streaming y experiencias de partido.",
+    logo: "/imagenes/blue6.png",
+    contact: "Laura Ríos",
+    email: "contacto@blue6live.co",
+    phone: "+57 314 889 4110",
+    whatsapp: "+57 314 889 4110",
+    website: "https://blue6live.co",
+    social: "@blue6live",
+    city: "Chía",
+    status: "pausado",
+  },
+];
+
+const campaignSeed = [
+  {
+    id: "campania-principal",
+    name: "Juega mejor en Bogotá",
+    advertiser: "Patagonia Sports",
+    description: "Campaña principal para impulsar reservas premium y contenido activo entre comunidades locales.",
+    banner: "/imagenes/cancha1.png",
+    landingUrl: "https://patagonasports.co",
+    type: "Banner principal",
+    startDate: "2026-11-01",
+    endDate: "2026-12-31",
+    budget: 1500000,
+    contractedPrice: 800000,
+    status: "activa",
+    space: "Banner principal de patrocinador",
+    priority: 1,
+    impressions: 243500,
+    clicks: 14700,
+  },
+  {
+    id: "campania-aliados",
+    name: "Aliados del fútbol local",
+    advertiser: "Sinergia Bogotá",
+    description: "Alineación con organizaciones, entrenamientos y actividades del barrio.",
+    banner: "/imagenes/cancha2.png",
+    landingUrl: "https://sinergiabo.com",
+    type: "Aliados comerciales",
+    startDate: "2026-11-10",
+    endDate: "2026-12-20",
+    budget: 1100000,
+    contractedPrice: 400000,
+    status: "programada",
+    space: "Sección de aliados comerciales",
+    priority: 2,
+    impressions: 98000,
+    clicks: 5200,
+  },
+  {
+    id: "campania-catalogo",
+    name: "Tu próximo partido empieza hoy",
+    advertiser: "Blue 6 Live",
+    description: "Promoción liderada por contenido deportivo e invitación a jugar con grupos del sector.",
+    banner: "/imagenes/donbalon.png",
+    landingUrl: "https://blue6live.co",
+    type: "Catálogo",
+    startDate: "2026-08-01",
+    endDate: "2026-11-20",
+    budget: 900000,
+    contractedPrice: 300000,
+    status: "finalizada",
+    space: "Publicidad entre tarjetas del catálogo",
+    priority: 3,
+    impressions: 176000,
+    clicks: 8300,
+  },
+];
+
+const placementSeed = [
+  { id: "principal", label: "Banner principal de patrocinador", activeCount: 1, priority: 1 },
+  { id: "destacado", label: "Patrocinador destacado en inicio", activeCount: 2, priority: 2 },
+  { id: "catalogo", label: "Publicidad entre tarjetas del catálogo", activeCount: 3, priority: 3 },
+  { id: "aliados", label: "Sección de aliados comerciales", activeCount: 2, priority: 4 },
+  { id: "footer", label: "Publicidad en la parte inferior de la página", activeCount: 1, priority: 5 },
+  { id: "contenido", label: "Patrocinadores de contenidos deportivos", activeCount: 1, priority: 6 },
+];
+
+function formatMoney(value) {
+  return new Intl.NumberFormat("es-CO", {
+    style: "currency",
+    currency: "COP",
+    maximumFractionDigits: 0,
+  }).format(Number(value || 0));
+}
+
+function getCtr(impressions = 0, clicks = 0) {
+  if (!impressions) return 0;
+  return (Number(clicks) / Number(impressions)) * 100;
+}
+
+function daysUntil(dateString) {
+  if (!dateString) return Infinity;
+  const target = new Date(`${dateString}T12:00:00`);
+  const now = new Date();
+  return Math.ceil((target - now) / (1000 * 60 * 60 * 24));
+}
+
 function HomePage() {
   const { courts, error, availabilityError, now } = useCourtsFeed();
   const featured = courts.slice(0, 3);
@@ -288,9 +419,11 @@ function HomePage() {
   return (
     <>
       <HeroCarousel courts={courts} />
+      <AdvertisingSpotlight />
       {error && <section className="container"><ErrorPanel message={error} /></section>}
       {availabilityError && <p className="availability-warning container" role="status">{availabilityError}</p>}
       <HomeNearbySection courts={courts} now={now} />
+      <BrandPartnersSection />
       <section className="section container">
         <div className="section-heading">
           <div><span className="eyebrow">ESCOGE TU LUGAR</span><h2>Un buen partido<br />empieza <em>por la cancha.</em></h2></div>
@@ -358,6 +491,62 @@ const defaultHeroImages = [
   { name: "Punto 30", image: "imagenes/punto30.png" },
 ];
 
+function AdvertisingSpotlight() {
+  const activeCampaign = campaignSeed
+    .filter((campaign) => campaign.status === "activa" || campaign.status === "programada")
+    .sort((left, right) => left.priority - right.priority)[0];
+
+  if (!activeCampaign) return null;
+
+  const advertiser = advertiserSeed.find((item) => item.company === activeCampaign.advertiser) || advertiserSeed[0];
+
+  return (
+    <section className="promo-spotlight container">
+      <div className="promo-spotlight-copy">
+        <span className="eyebrow">PATROCINADOR DESTACADO</span>
+        <h2>{activeCampaign.name}</h2>
+        <p>{activeCampaign.description}</p>
+        <div className="promo-meta">
+          <span>{advertiser.company}</span>
+          <span>{activeCampaign.type}</span>
+          <span>{activeCampaign.space}</span>
+        </div>
+        <a className="button button-dark" href={activeCampaign.landingUrl} target="_blank" rel="noreferrer">Descubrir oferta <span aria-hidden="true">↗</span></a>
+      </div>
+      <div className="promo-spotlight-visual">
+        <img src={activeCampaign.banner} alt={activeCampaign.name} />
+        <div className="promo-badge">PUBLICIDAD</div>
+      </div>
+    </section>
+  );
+}
+
+function BrandPartnersSection() {
+  const partners = advertiserSeed.filter((advertiser) => advertiser.status === "activo");
+
+  return (
+    <section className="promo-partners section">
+      <div className="container promo-partners-inner">
+        <div className="section-heading section-heading-inline">
+          <div>
+            <span className="eyebrow">ALIANZAS COMERCIALES</span>
+            <h2>Marcas que<br /><em>apoyan el fútbol.</em></h2>
+          </div>
+        </div>
+        <div className="promo-brand-grid">
+          {partners.map((advertiser) => (
+            <div className="promo-brand-card" key={advertiser.id}>
+              <img src={advertiser.logo} alt={advertiser.company} />
+              <strong>{advertiser.company}</strong>
+              <small>{advertiser.city}</small>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function HeroCarousel({ courts }) {
   const courtSlides = courts
     .filter((court) => court.image && !court.image.toLowerCase().includes("logo"))
@@ -407,6 +596,7 @@ function CourtsPage() {
   const { courts, error, availabilityError, loading, now } = useCourtsFeed();
   const [query, setQuery] = useState("");
   const filtered = courts.filter((court) => `${court.name} ${court.description || ""}`.toLowerCase().includes(query.toLowerCase()));
+  const sponsorCampaign = campaignSeed.find((campaign) => campaign.status === "activa") || campaignSeed[0];
 
   return (
     <section className="section container catalog-page">
@@ -421,7 +611,21 @@ function CourtsPage() {
       {availabilityError && <p className="availability-warning" role="status">{availabilityError}</p>}
       {loading ? <Loading /> : error ? <ErrorPanel message={error} /> : filtered.length ? (
         <div className="court-grid">
-          {filtered.map((court, index) => <CourtCard key={court.id} court={court} index={index} now={now} />)}
+          {filtered.flatMap((court, index) => {
+            const cards = [<CourtCard key={court.id} court={court} index={index} now={now} />];
+            if ((index + 1) % 3 === 0 && sponsorCampaign) {
+              cards.push(
+                <article className="promo-inline-card" key={`${court.id}-sponsor`}>
+                  <span className="eyebrow">PUBLICIDAD · PATROCINADO</span>
+                  <h3>{sponsorCampaign.name}</h3>
+                  <img src={sponsorCampaign.banner} alt={sponsorCampaign.name} />
+                  <p>{sponsorCampaign.description}</p>
+                  <a href={sponsorCampaign.landingUrl} target="_blank" rel="noreferrer">Ver oferta <span aria-hidden="true">↗</span></a>
+                </article>,
+              );
+            }
+            return cards;
+          })}
         </div>
       ) : <div className="empty-state"><span className="empty-icon">⌕</span><h3>No encontramos esa cancha</h3><p>Prueba con otro nombre o vuelve a ver todas.</p><button className="button button-outline" onClick={() => setQuery("")}>Limpiar búsqueda</button></div>}
     </section>
@@ -944,6 +1148,231 @@ function reservedTeamName(playerName) {
   return `Team ${playerName}`.slice(0, 60).trim();
 }
 
+function AdminAdvertisingPanel() {
+  const [advertisers, setAdvertisers] = useState(advertiserSeed);
+  const [campaigns, setCampaigns] = useState(campaignSeed);
+  const [placements, setPlacements] = useState(placementSeed);
+
+  const summary = {
+    activeAds: campaigns.filter((campaign) => campaign.status === "activa").length,
+    sponsors: advertisers.filter((advertiser) => advertiser.status === "activo").length,
+    campaignsInForce: campaigns.filter((campaign) => ["activa", "programada"].includes(campaign.status)).length,
+    impressions: campaigns.reduce((sum, campaign) => sum + Number(campaign.impressions || 0), 0),
+    clicks: campaigns.reduce((sum, campaign) => sum + Number(campaign.clicks || 0), 0),
+    ctr: getCtr(
+      campaigns.reduce((sum, campaign) => sum + Number(campaign.impressions || 0), 0),
+      campaigns.reduce((sum, campaign) => sum + Number(campaign.clicks || 0), 0),
+    ),
+    expiringSoon: campaigns.filter((campaign) => daysUntil(campaign.endDate) <= 14 && campaign.status !== "finalizada").length,
+    revenue: campaigns.reduce((sum, campaign) => sum + Number(campaign.contractedPrice || 0), 0),
+  };
+
+  function addAdvertiser(event) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const company = String(form.get("company") || "").trim();
+    if (!company) return;
+    const nextAdvertiser = {
+      id: `advertiser-${company.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+      company,
+      description: String(form.get("description") || ""),
+      logo: String(form.get("logo") || "/imagenes/logo1.png"),
+      contact: String(form.get("contact") || "Contacto"),
+      email: String(form.get("email") || "contacto@campofinder.co"),
+      phone: String(form.get("phone") || ""),
+      whatsapp: String(form.get("whatsapp") || ""),
+      website: String(form.get("website") || "https://campofinder.co"),
+      social: String(form.get("social") || "@campofinder"),
+      city: String(form.get("city") || "Bogotá"),
+      status: String(form.get("status") || "activo"),
+    };
+    setAdvertisers((current) => [nextAdvertiser, ...current]);
+    event.currentTarget.reset();
+  }
+
+  function addCampaign(event) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const nextCampaign = {
+      id: `campaign-${Date.now()}`,
+      name: String(form.get("name") || "Campaña nueva"),
+      advertiser: String(form.get("advertiser") || advertisers[0]?.company || "Patagonia Sports"),
+      description: String(form.get("description") || ""),
+      banner: String(form.get("banner") || "/imagenes/cancha1.png"),
+      landingUrl: String(form.get("landingUrl") || "https://campofinder.co"),
+      type: String(form.get("type") || "Banner principal"),
+      startDate: String(form.get("startDate") || "2026-11-01"),
+      endDate: String(form.get("endDate") || "2026-11-30"),
+      budget: Number(form.get("budget") || 0),
+      contractedPrice: Number(form.get("contractedPrice") || 0),
+      status: String(form.get("status") || "borrador"),
+      space: String(form.get("space") || "Banner principal de patrocinador"),
+      priority: Number(form.get("priority") || 1),
+      impressions: Number(form.get("impressions") || 0),
+      clicks: Number(form.get("clicks") || 0),
+    };
+    setCampaigns((current) => [nextCampaign, ...current]);
+    event.currentTarget.reset();
+  }
+
+  function toggleCampaignStatus(campaignId) {
+    setCampaigns((current) => current.map((campaign) => {
+      if (campaign.id !== campaignId) return campaign;
+      const statuses = ["borrador", "programada", "activa", "pausada", "finalizada"];
+      const currentIndex = statuses.indexOf(campaign.status);
+      const nextStatus = statuses[(currentIndex + 1) % statuses.length];
+      return { ...campaign, status: nextStatus };
+    }));
+  }
+
+  function removeCampaign(campaignId) {
+    setCampaigns((current) => current.filter((campaign) => campaign.id !== campaignId));
+  }
+
+  return (
+    <div className="admin-advertising">
+      <div className="advertising-header">
+        <div>
+          <span className="eyebrow">PUBLICIDAD Y PATROCINADORES</span>
+          <h2>Panel general<br /><em>de monetización.</em></h2>
+        </div>
+      </div>
+      <div className="ad-stats-grid">
+        <article className="ad-stat">
+          <small>Anuncios activos</small>
+          <strong>{summary.activeAds}</strong>
+        </article>
+        <article className="ad-stat">
+          <small>Patrocinadores registrados</small>
+          <strong>{summary.sponsors}</strong>
+        </article>
+        <article className="ad-stat">
+          <small>Campañas vigentes</small>
+          <strong>{summary.campaignsInForce}</strong>
+        </article>
+        <article className="ad-stat">
+          <small>Impresiones totales</small>
+          <strong>{summary.impressions.toLocaleString("es-CO")}</strong>
+        </article>
+        <article className="ad-stat">
+          <small>Clics totales</small>
+          <strong>{summary.clicks.toLocaleString("es-CO")}</strong>
+        </article>
+        <article className="ad-stat">
+          <small>CTR</small>
+          <strong>{summary.ctr.toFixed(2)}%</strong>
+        </article>
+        <article className="ad-stat">
+          <small>Próximas a vencer</small>
+          <strong>{summary.expiringSoon}</strong>
+        </article>
+        <article className="ad-stat">
+          <small>Ingresos registrados</small>
+          <strong>{formatMoney(summary.revenue)}</strong>
+        </article>
+      </div>
+
+      <div className="admin-ad-layout">
+        <section className="ad-section-card">
+          <div className="section-card-header">
+            <h3>Gestión de anunciantes</h3>
+          </div>
+          <form className="ad-form-grid" onSubmit={addAdvertiser}>
+            <label>Nombre comercial<input name="company" required /></label>
+            <label>Persona de contacto<input name="contact" required /></label>
+            <label>Correo electrónico<input name="email" type="email" required /></label>
+            <label>Teléfono<input name="phone" /></label>
+            <label>WhatsApp<input name="whatsapp" /></label>
+            <label>Página web<input name="website" type="url" /></label>
+            <label>Redes sociales<input name="social" /></label>
+            <label>Ciudad o zona<input name="city" /></label>
+            <label>Logo<input name="logo" defaultValue="/imagenes/logo1.png" /></label>
+            <label>Estado<select name="status" defaultValue="activo"><option value="activo">Activo</option><option value="pausado">Pausado</option></select></label>
+            <label className="field-span-full">Descripción<textarea name="description" rows="3" /></label>
+            <button className="button button-dark" type="submit">Registrar anunciante</button>
+          </form>
+          <div className="ad-list">
+            {advertisers.map((advertiser) => (
+              <div className="ad-row" key={advertiser.id}>
+                <div>
+                  <strong>{advertiser.company}</strong>
+                  <small>{advertiser.city} · {advertiser.contact}</small>
+                </div>
+                <span className={`status-pill ${advertiser.status === "activo" ? "status-live" : "status-paused"}`}>{advertiser.status}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="ad-section-card">
+          <div className="section-card-header">
+            <h3>Gestión de campañas</h3>
+          </div>
+          <form className="ad-form-grid" onSubmit={addCampaign}>
+            <label>Nombre<input name="name" required /></label>
+            <label>Anunciante<select name="advertiser" defaultValue={advertisers[0]?.company || "Patagonia Sports"}>
+              {advertisers.map((advertiser) => <option key={advertiser.id} value={advertiser.company}>{advertiser.company}</option>)}
+            </select></label>
+            <label>Tipo de publicidad<select name="type" defaultValue="Banner principal"><option value="Banner principal">Banner principal</option><option value="Patrocinador destacado">Patrocinador destacado</option><option value="Catálogo">Catálogo</option><option value="Aliados comerciales">Aliados comerciales</option></select></label>
+            <label>Espacio<select name="space" defaultValue="Banner principal de patrocinador"><option value="Banner principal de patrocinador">Banner principal de patrocinador</option><option value="Patrocinador destacado en inicio">Patrocinador destacado en inicio</option><option value="Publicidad entre tarjetas del catálogo">Publicidad entre tarjetas del catálogo</option><option value="Sección de aliados comerciales">Sección de aliados comerciales</option></select></label>
+            <label>Fecha inicio<input name="startDate" type="date" required /></label>
+            <label>Fecha fin<input name="endDate" type="date" required /></label>
+            <label>Presupuesto<input name="budget" type="number" min="0" defaultValue="1000000" /></label>
+            <label>Precio contratado<input name="contractedPrice" type="number" min="0" defaultValue="400000" /></label>
+            <label>Estado<select name="status" defaultValue="programada"><option value="borrador">Borrador</option><option value="programada">Programada</option><option value="activa">Activa</option><option value="pausada">Pausada</option><option value="finalizada">Finalizada</option></select></label>
+            <label>Prioridad<input name="priority" type="number" min="1" defaultValue="1" /></label>
+            <label>Impresiones<input name="impressions" type="number" min="0" defaultValue="0" /></label>
+            <label>Clics<input name="clicks" type="number" min="0" defaultValue="0" /></label>
+            <label>URL de destino<input name="landingUrl" type="url" defaultValue="https://campofinder.co" /></label>
+            <label>Banner<input name="banner" defaultValue="/imagenes/cancha1.png" /></label>
+            <label className="field-span-full">Descripción<textarea name="description" rows="3" /></label>
+            <button className="button button-dark" type="submit">Crear campaña</button>
+          </form>
+          <div className="ad-list">
+            {campaigns.map((campaign) => (
+              <div className="campaign-card" key={campaign.id}>
+                <div className="campaign-card-top">
+                  <div>
+                    <strong>{campaign.name}</strong>
+                    <small>{campaign.advertiser} · {campaign.space}</small>
+                  </div>
+                  <span className={`status-pill ${campaign.status === "activa" ? "status-live" : campaign.status === "finalizada" ? "status-paused" : "status-neutral"}`}>{campaign.status}</span>
+                </div>
+                <div className="campaign-metrics">
+                  <span>{campaign.impressions.toLocaleString("es-CO")} imp.</span>
+                  <span>{campaign.clicks.toLocaleString("es-CO")} clics</span>
+                  <span>{getCtr(campaign.impressions, campaign.clicks).toFixed(2)}% CTR</span>
+                </div>
+                <div className="campaign-actions">
+                  <button className="button button-outline button-small" type="button" onClick={() => toggleCampaignStatus(campaign.id)}>Actualizar estado</button>
+                  <button className="button button-danger button-small" type="button" onClick={() => removeCampaign(campaign.id)}>Eliminar</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="ad-section-card">
+          <div className="section-card-header">
+            <h3>Gestión de espacios publicitarios</h3>
+          </div>
+          <div className="placement-list">
+            {placements.map((placement) => (
+              <div className="placement-row" key={placement.id}>
+                <div>
+                  <strong>{placement.label}</strong>
+                  <small>{placement.activeCount} campañas activas · prioridad {placement.priority}</small>
+                </div>
+                <span className="status-pill status-neutral">Activo</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+}
+
 function AdminPage({ initialTab = "courts" }) {
   const [overview, setOverview] = useState(null);
   const [error, setError] = useState("");
@@ -1060,7 +1489,7 @@ function AdminPage({ initialTab = "courts" }) {
     <section className="section container admin-page">
       <div className="catalog-heading"><div><span className="eyebrow">TU ESPACIO DE GESTIÓN</span><h1>Panel de<br /><em>control.</em></h1></div><span className="admin-badge"><span /> ADMINISTRADOR</span></div>
       {error && <ErrorPanel message={error} />}
-      <div className="admin-tabs"><button className={tab === "courts" ? "active" : ""} onClick={() => setTab("courts")}>Canchas <span>{overview?.courts.length || 0}</span></button><button className={tab === "availability" ? "active" : ""} onClick={() => setTab("availability")}>Horarios bloqueados <span>{overview?.blockedSlots.length || 0}</span></button><button className={tab === "live" ? "active" : ""} onClick={() => setTab("live")}>Marcador en vivo</button><button className={tab === "users" ? "active" : ""} onClick={() => setTab("users")}>Usuarios <span>{overview?.users.length || 0}</span></button></div>
+      <div className="admin-tabs"><button className={tab === "courts" ? "active" : ""} onClick={() => setTab("courts")}>Canchas <span>{overview?.courts.length || 0}</span></button><button className={tab === "availability" ? "active" : ""} onClick={() => setTab("availability")}>Horarios bloqueados <span>{overview?.blockedSlots.length || 0}</span></button><button className={tab === "live" ? "active" : ""} onClick={() => setTab("live")}>Marcador en vivo</button><button className={tab === "users" ? "active" : ""} onClick={() => setTab("users")}>Usuarios <span>{overview?.users.length || 0}</span></button><button className={tab === "advertising" ? "active" : ""} onClick={() => setTab("advertising")}>PUBLICIDAD Y PATROCINADORES</button></div>
       {tab === "courts" && (
         <div className="admin-court-list">
           {overview?.courts.map((court) => (
@@ -1119,6 +1548,7 @@ function AdminPage({ initialTab = "courts" }) {
           {editingUserId === person.id && <div className="user-edit-panel"><form className="admin-user-form" onSubmit={(event) => editUser(event, person.id)}><label>Nombre<input name="name" defaultValue={person.name} required maxLength="100" /></label><label>Correo<input name="email" type="email" defaultValue={person.email} required /></label><label>Rol<select name="role" defaultValue={person.role}><option value="usuario">Usuario</option><option value="jugador">Jugador</option><option value="administrador">Administrador</option></select></label><button className="button button-dark button-small" disabled={busy}>Guardar cambios</button></form><form className="password-form" onSubmit={(event) => changePassword(event, person.id)}><label>Nueva contraseña<input name="password" type="password" minLength="8" placeholder="Al menos 8 caracteres" required /></label><button className="button button-outline button-small" disabled={busy}>Cambiar contraseña</button></form></div>}
         </article>)}{!overview?.users.length && <div className="empty-state"><h3>No hay usuarios registrados</h3></div>}</div>
       </div>}
+      {tab === "advertising" && <AdminAdvertisingPanel />}
     </section>
   );
 }

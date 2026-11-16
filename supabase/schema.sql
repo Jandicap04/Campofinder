@@ -420,4 +420,599 @@ revoke all on function public.create_reservation(bigint, date, text, text) from 
 grant execute on function public.get_court_availability(bigint, date) to authenticated;
 grant execute on function public.create_reservation(bigint, date, text, text) to authenticated;
 
+create extension if not exists pgcrypto;
+
+create table if not exists public.advertisers (
+    id uuid primary key default gen_random_uuid(),
+    company_name text not null,
+    brand_name text,
+    description text,
+    logo_url text,
+    website text,
+    email text,
+    phone text,
+    whatsapp text,
+    city text,
+    contact_name text,
+    social_handle text,
+    status text not null default 'active'
+        check (status in ('active', 'paused', 'archived')),
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now()
+);
+
+create table if not exists public.ad_placements (
+    id uuid primary key default gen_random_uuid(),
+    slug text not null unique,
+    label text not null,
+    description text,
+    kind text not null check (kind in ('hero', 'partners', 'inline_catalog', 'footer', 'content')),
+    priority integer not null default 1 check (priority > 0),
+    active boolean not null default true,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now()
+);
+
+create table if not exists public.campaigns (
+    id uuid primary key default gen_random_uuid(),
+    advertiser_id uuid not null references public.advertisers (id) on delete cascade,
+    name text not null,
+    description text,
+    banner_url text,
+    landing_url text,
+    start_date date not null,
+    end_date date not null,
+    budget numeric(12,2) not null default 0 check (budget >= 0),
+    contracted_value numeric(12,2) not null default 0 check (contracted_value >= 0),
+    status text not null default 'draft'
+        check (status in ('draft', 'scheduled', 'active', 'paused', 'finished')),
+    placement_id uuid references public.ad_placements (id) on delete set null,
+    priority integer not null default 1 check (priority > 0),
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now(),
+    constraint campaigns_date_order check (end_date >= start_date)
+);
+
+create table if not exists public.ad_metrics (
+    id uuid primary key default gen_random_uuid(),
+    campaign_id uuid not null references public.campaigns (id) on delete cascade,
+    placement_id uuid references public.ad_placements (id) on delete set null,
+    metric_date date not null,
+    impressions bigint not null default 0 check (impressions >= 0),
+    clicks bigint not null default 0 check (clicks >= 0),
+    conversions bigint not null default 0 check (conversions >= 0),
+    revenue numeric(12,2) not null default 0 check (revenue >= 0),
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now(),
+    unique (campaign_id, placement_id, metric_date)
+);
+
+create table if not exists public.ad_payments (
+    id uuid primary key default gen_random_uuid(),
+    campaign_id uuid not null references public.campaigns (id) on delete cascade,
+    invoice_number text not null unique,
+    amount numeric(12,2) not null check (amount >= 0),
+    currency text not null default 'COP' check (currency = 'COP'),
+    status text not null default 'pending'
+        check (status in ('pending', 'paid', 'overdue', 'refunded')),
+    payment_date timestamptz,
+    notes text,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now()
+);
+
+create index if not exists advertisers_status_idx
+    on public.advertisers (status, updated_at desc);
+create index if not exists campaigns_status_date_idx
+    on public.campaigns (status, start_date, end_date);
+create index if not exists campaigns_advertiser_idx
+    on public.campaigns (advertiser_id, status);
+create index if not exists ad_metrics_date_idx
+    on public.ad_metrics (metric_date desc, campaign_id);
+create index if not exists ad_payments_status_idx
+    on public.ad_payments (status, payment_date desc);
+
+alter table public.advertisers enable row level security;
+alter table public.ad_placements enable row level security;
+alter table public.campaigns enable row level security;
+alter table public.ad_metrics enable row level security;
+alter table public.ad_payments enable row level security;
+
+grant select on public.advertisers to authenticated;
+grant select on public.ad_placements to anon, authenticated;
+grant select on public.campaigns to authenticated;
+grant select on public.ad_metrics to authenticated;
+grant select on public.ad_payments to authenticated;
+grant insert, update, delete on public.advertisers to authenticated;
+grant insert, update, delete on public.ad_placements to authenticated;
+grant insert, update, delete on public.campaigns to authenticated;
+grant insert, update, delete on public.ad_metrics to authenticated;
+grant insert, update, delete on public.ad_payments to authenticated;
+
+revoke select on public.advertisers from anon;
+revoke select on public.campaigns from anon;
+revoke select on public.ad_metrics, public.ad_payments from anon;
+
+drop policy if exists "Advertisers are visible to public" on public.advertisers;
+drop policy if exists "Admins read advertisers" on public.advertisers;
+create policy "Admins read advertisers"
+    on public.advertisers for select to authenticated
+    using ((select public.is_admin()));
+
+drop policy if exists "Admins manage advertisers" on public.advertisers;
+create policy "Admins manage advertisers"
+    on public.advertisers for all to authenticated
+    using ((select public.is_admin()))
+    with check ((select public.is_admin()));
+
+drop policy if exists "Ad placements are visible to public" on public.ad_placements;
+create policy "Ad placements are visible to public"
+    on public.ad_placements for select to anon, authenticated
+    using (active = true or (select public.is_admin()));
+
+drop policy if exists "Admins manage ad placements" on public.ad_placements;
+create policy "Admins manage ad placements"
+    on public.ad_placements for all to authenticated
+    using ((select public.is_admin()))
+    with check ((select public.is_admin()));
+
+drop policy if exists "Campaigns are visible to public" on public.campaigns;
+drop policy if exists "Admins read campaigns" on public.campaigns;
+create policy "Admins read campaigns"
+    on public.campaigns for select to authenticated
+    using ((select public.is_admin()));
+
+drop policy if exists "Admins manage campaigns" on public.campaigns;
+create policy "Admins manage campaigns"
+    on public.campaigns for all to authenticated
+    using ((select public.is_admin()))
+    with check ((select public.is_admin()));
+
+drop policy if exists "Ad metrics are visible to admins" on public.ad_metrics;
+create policy "Ad metrics are visible to admins"
+    on public.ad_metrics for select to authenticated
+    using ((select public.is_admin()));
+
+drop policy if exists "Admins manage ad metrics" on public.ad_metrics;
+create policy "Admins manage ad metrics"
+    on public.ad_metrics for all to authenticated
+    using ((select public.is_admin()))
+    with check ((select public.is_admin()));
+
+drop policy if exists "Ad payments are visible to admins" on public.ad_payments;
+create policy "Ad payments are visible to admins"
+    on public.ad_payments for select to authenticated
+    using ((select public.is_admin()));
+
+drop policy if exists "Admins manage ad payments" on public.ad_payments;
+create policy "Admins manage ad payments"
+    on public.ad_payments for all to authenticated
+    using ((select public.is_admin()))
+    with check ((select public.is_admin()));
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+    'brand-assets',
+    'brand-assets',
+    true,
+    5242880,
+    array['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml']
+)
+on conflict (id) do nothing;
+
+drop policy if exists "Brand assets are publicly readable" on storage.objects;
+create policy "Brand assets are publicly readable"
+    on storage.objects for select to anon, authenticated
+    using (bucket_id = 'brand-assets');
+
+drop policy if exists "Admins manage brand assets" on storage.objects;
+create policy "Admins manage brand assets"
+    on storage.objects for all to authenticated
+    using (
+        bucket_id = 'brand-assets'
+        and (select public.is_admin())
+    )
+    with check (
+        bucket_id = 'brand-assets'
+        and (select public.is_admin())
+    );
+
+create or replace function public.update_updated_at_column()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+    new.updated_at = now();
+    return new;
+end;
+$$;
+
+drop trigger if exists advertisers_updated_at on public.advertisers;
+create trigger advertisers_updated_at
+    before update on public.advertisers
+    for each row execute procedure public.update_updated_at_column();
+
+drop trigger if exists ad_placements_updated_at on public.ad_placements;
+create trigger ad_placements_updated_at
+    before update on public.ad_placements
+    for each row execute procedure public.update_updated_at_column();
+
+drop trigger if exists campaigns_updated_at on public.campaigns;
+create trigger campaigns_updated_at
+    before update on public.campaigns
+    for each row execute procedure public.update_updated_at_column();
+
+drop trigger if exists ad_metrics_updated_at on public.ad_metrics;
+create trigger ad_metrics_updated_at
+    before update on public.ad_metrics
+    for each row execute procedure public.update_updated_at_column();
+
+drop trigger if exists ad_payments_updated_at on public.ad_payments;
+create trigger ad_payments_updated_at
+    before update on public.ad_payments
+    for each row execute procedure public.update_updated_at_column();
+
+insert into public.advertisers (
+    id,
+    company_name,
+    brand_name,
+    description,
+    logo_url,
+    website,
+    email,
+    phone,
+    whatsapp,
+    city,
+    contact_name,
+    social_handle,
+    status
+)
+values (
+    'a1e8c4b7-44f0-4d9b-b7d1-8a1a4434f9d6',
+    'Patagonia Sports',
+    'Patagonia Sports',
+    'Preparación física, equipamiento y contenido deportivo para comunidades activas.',
+    '/imagenes/logo1.png',
+    'https://patagonasports.co',
+    'hola@patagonasports.co',
+    '+57 310 555 1200',
+    '+57 310 555 1200',
+    'Bogotá',
+    'María López',
+    '@patagonasports',
+    'active'
+),
+(
+    'c14a3cc5-0198-4e6f-bd52-0bf8dc5808d3',
+    'Sinergia Bogotá',
+    'Sinergia Bogotá',
+    'Marca local enfocada en bienestar, eventos deportivos y networking del barrio.',
+    '/imagenes/cancha1.png',
+    'https://sinergiabo.com',
+    'team@sinergiabo.com',
+    '+57 321 998 7710',
+    '+57 321 998 7710',
+    'Cundinamarca',
+    'Carlos Pulido',
+    '@sinergia.bogota',
+    'active'
+),
+(
+    'c4641d77-2120-4a54-a8f8-05d8d21fe3a0',
+    'Blue 6 Live',
+    'Blue 6 Live',
+    'Segmento premium para fútbol urbano, streaming y experiencias de partido.',
+    '/imagenes/blue6.png',
+    'https://blue6live.co',
+    'contacto@blue6live.co',
+    '+57 314 889 4110',
+    '+57 314 889 4110',
+    'Chía',
+    'Laura Ríos',
+    '@blue6live',
+    'paused'
+)
+on conflict (id) do update
+set company_name = excluded.company_name,
+    brand_name = excluded.brand_name,
+    description = excluded.description,
+    logo_url = excluded.logo_url,
+    website = excluded.website,
+    email = excluded.email,
+    phone = excluded.phone,
+    whatsapp = excluded.whatsapp,
+    city = excluded.city,
+    contact_name = excluded.contact_name,
+    social_handle = excluded.social_handle,
+    status = excluded.status,
+    updated_at = now();
+
+insert into public.ad_placements (
+    id,
+    slug,
+    label,
+    description,
+    kind,
+    priority,
+    active
+)
+values (
+    '53d8927d-2ef0-4c0e-9d9d-ecf8d7fefa4a',
+    'hero-sponsor',
+    'Banner principal de patrocinador',
+    'Sección destacada del home con patrocinador activo.',
+    'hero',
+    1,
+    true
+),
+(
+    '5d6f1d80-7ffb-4473-9096-6fff4210e5f5',
+    'partners-grid',
+    'Sección de aliados comerciales',
+    'Matriz de marcas y patrocinadores del ecosistema.',
+    'partners',
+    2,
+    true
+),
+(
+    '90733d25-10ac-461f-9bdb-6a1d164825de',
+    'catalog-inline',
+    'Publicidad entre tarjetas del catálogo',
+    'Bloques de campaña insertados entre listado de canchas.',
+    'inline_catalog',
+    3,
+    true
+),
+(
+    'a4bfd9df-0bf5-44d2-821f-93d829228a04',
+    'footer-banner',
+    'Publicidad inferior del sitio',
+    'Promoción de marca en la parte baja de la página.',
+    'footer',
+    4,
+    true
+)
+on conflict (slug) do update
+set label = excluded.label,
+    description = excluded.description,
+    kind = excluded.kind,
+    priority = excluded.priority,
+    active = excluded.active,
+    updated_at = now();
+
+insert into public.campaigns (
+    id,
+    advertiser_id,
+    name,
+    description,
+    banner_url,
+    landing_url,
+    start_date,
+    end_date,
+    budget,
+    contracted_value,
+    status,
+    placement_id,
+    priority
+)
+values (
+    '8c1c7f9f-78ac-4f1e-aa93-16a0802f3f17',
+    'a1e8c4b7-44f0-4d9b-b7d1-8a1a4434f9d6',
+    'Juega mejor en Bogotá',
+    'Campaña principal para impulsar reservas premium y contenido activo entre comunidades locales.',
+    '/imagenes/cancha1.png',
+    'https://patagonasports.co',
+    '2026-11-01',
+    '2026-12-31',
+    1500000,
+    800000,
+    'active',
+    '53d8927d-2ef0-4c0e-9d9d-ecf8d7fefa4a',
+    1
+),
+(
+    '9e3c4a0b-3141-4b6d-a2ef-8ee6c76f8d33',
+    'c14a3cc5-0198-4e6f-bd52-0bf8dc5808d3',
+    'Aliados del fútbol local',
+    'Alineación con organizaciones, entrenamientos y actividades del barrio.',
+    '/imagenes/cancha2.png',
+    'https://sinergiabo.com',
+    '2026-11-10',
+    '2026-12-20',
+    1100000,
+    400000,
+    'scheduled',
+    '5d6f1d80-7ffb-4473-9096-6fff4210e5f5',
+    2
+),
+(
+    '7d3a1cf7-fd48-4b1c-84c7-124be7087d4a',
+    'c4641d77-2120-4a54-a8f8-05d8d21fe3a0',
+    'Tu próximo partido empieza hoy',
+    'Promoción liderada por contenido deportivo e invitación a jugar con grupos del sector.',
+    '/imagenes/donbalon.png',
+    'https://blue6live.co',
+    '2026-08-01',
+    '2026-11-20',
+    900000,
+    300000,
+    'finished',
+    '90733d25-10ac-461f-9bdb-6a1d164825de',
+    3
+)
+on conflict (id) do update
+set advertiser_id = excluded.advertiser_id,
+    name = excluded.name,
+    description = excluded.description,
+    banner_url = excluded.banner_url,
+    landing_url = excluded.landing_url,
+    start_date = excluded.start_date,
+    end_date = excluded.end_date,
+    budget = excluded.budget,
+    contracted_value = excluded.contracted_value,
+    status = excluded.status,
+    placement_id = excluded.placement_id,
+    priority = excluded.priority,
+    updated_at = now();
+
+insert into public.ad_metrics (
+    id,
+    campaign_id,
+    placement_id,
+    metric_date,
+    impressions,
+    clicks,
+    conversions,
+    revenue
+)
+values (
+    '2f8142d1-157f-4c92-8a45-a7f0c22612d7',
+    '8c1c7f9f-78ac-4f1e-aa93-16a0802f3f17',
+    '53d8927d-2ef0-4c0e-9d9d-ecf8d7fefa4a',
+    current_date - 1,
+    243500,
+    14700,
+    420,
+    155000
+),
+(
+    'a9a9d02d-cac1-49d1-8d4d-50bb1029b540',
+    '9e3c4a0b-3141-4b6d-a2ef-8ee6c76f8d33',
+    '5d6f1d80-7ffb-4473-9096-6fff4210e5f5',
+    current_date - 2,
+    98000,
+    5200,
+    180,
+    65000
+)
+on conflict (campaign_id, placement_id, metric_date) do update
+set impressions = excluded.impressions,
+    clicks = excluded.clicks,
+    conversions = excluded.conversions,
+    revenue = excluded.revenue,
+    updated_at = now();
+
+insert into public.ad_payments (
+    id,
+    campaign_id,
+    invoice_number,
+    amount,
+    currency,
+    status,
+    payment_date,
+    notes
+)
+values (
+    '7c048f12-e070-4d25-bd6d-da1e687e0bcc',
+    '8c1c7f9f-78ac-4f1e-aa93-16a0802f3f17',
+    'INV-AD-2026-001',
+    800000,
+    'COP',
+    'paid',
+    now(),
+    'Pago por campaña principal del home.'
+),
+(
+    '63a9c9d0-3f5b-4d63-a772-4ca1d74a4e7a',
+    '9e3c4a0b-3141-4b6d-a2ef-8ee6c76f8d33',
+    'INV-AD-2026-002',
+    400000,
+    'COP',
+    'pending',
+    null,
+    'Pago programado para aliados del fútbol local.'
+)
+on conflict (invoice_number) do update
+set campaign_id = excluded.campaign_id,
+    amount = excluded.amount,
+    currency = excluded.currency,
+    status = excluded.status,
+    payment_date = excluded.payment_date,
+    notes = excluded.notes,
+    updated_at = now();
+
+create or replace function public.get_active_advertising_feed()
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+begin
+    return jsonb_build_object(
+        'advertisers', (
+            select coalesce(
+                jsonb_agg(
+                    jsonb_build_object(
+                        'id', a.id,
+                        'company_name', a.company_name,
+                        'description', a.description,
+                        'logo_url', a.logo_url,
+                        'city', a.city,
+                        'website', a.website,
+                        'status', a.status
+                    )
+                    order by a.company_name
+                ),
+                '[]'::jsonb
+            )
+            from public.advertisers a
+            where a.status = 'active'
+        ),
+        'campaigns', (
+            select coalesce(
+                jsonb_agg(
+                    jsonb_build_object(
+                        'id', c.id,
+                        'advertiser_name', a.company_name,
+                        'name', c.name,
+                        'description', c.description,
+                        'banner_url', c.banner_url,
+                        'landing_url', c.landing_url,
+                        'status', c.status,
+                        'priority', c.priority,
+                        'placement_label', p.label,
+                        'placement_slug', p.slug,
+                        'start_date', c.start_date,
+                        'end_date', c.end_date
+                    )
+                    order by c.priority, c.start_date
+                ),
+                '[]'::jsonb
+            )
+            from public.campaigns c
+            join public.advertisers a on a.id = c.advertiser_id
+            left join public.ad_placements p on p.id = c.placement_id
+            where c.status = 'active'
+              and current_date between c.start_date and c.end_date
+              and a.status = 'active'
+              and (p.id is null or p.active)
+        ),
+        'placements', (
+            select coalesce(
+                jsonb_agg(
+                    jsonb_build_object(
+                        'id', p.id,
+                        'slug', p.slug,
+                        'label', p.label,
+                        'kind', p.kind,
+                        'priority', p.priority,
+                        'active', p.active
+                    )
+                    order by p.priority
+                ),
+                '[]'::jsonb
+            )
+            from public.ad_placements p
+            where p.active = true
+        )
+    );
+end;
+$$;
+
+revoke all on function public.get_active_advertising_feed() from public, anon;
+grant execute on function public.get_active_advertising_feed() to anon, authenticated;
+
 notify pgrst, 'reload schema';
