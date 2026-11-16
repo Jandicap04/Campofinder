@@ -287,51 +287,6 @@ function RequireAdmin({ children }) {
   return user.role === "administrador" ? children : <Navigate to="/catalogo" replace />;
 }
 
-const advertiserSeed = [
-  {
-    id: "patagonia-sports",
-    company: "Patagonia Sports",
-    description: "Preparación física, equipamiento y contenido deportivo para comunidades activas.",
-    logo: "/imagenes/logo1.png",
-    contact: "María López",
-    email: "hola@patagonasports.co",
-    phone: "+57 310 555 1200",
-    whatsapp: "+57 310 555 1200",
-    website: "https://patagonasports.co",
-    social: "@patagonasports",
-    city: "Bogotá",
-    status: "activo",
-  },
-  {
-    id: "sinergia-bogota",
-    company: "Sinergia Bogotá",
-    description: "Marca local enfocada en bienestar, eventos deportivos y networking del barrio.",
-    logo: "/imagenes/cancha1.png",
-    contact: "Carlos Pulido",
-    email: "team@sinergiabo.com",
-    phone: "+57 321 998 7710",
-    whatsapp: "+57 321 998 7710",
-    website: "https://sinergiabo.com",
-    social: "@sinergia.bogota",
-    city: "Cundinamarca",
-    status: "activo",
-  },
-  {
-    id: "blue-6-live",
-    company: "Blue 6 Live",
-    description: "Segmento premium para fútbol urbano, streaming y experiencias de partido.",
-    logo: "/imagenes/blue6.png",
-    contact: "Laura Ríos",
-    email: "contacto@blue6live.co",
-    phone: "+57 314 889 4110",
-    whatsapp: "+57 314 889 4110",
-    website: "https://blue6live.co",
-    social: "@blue6live",
-    city: "Chía",
-    status: "pausado",
-  },
-];
-
 const campaignSeed = [
   {
     id: "campania-principal",
@@ -506,29 +461,21 @@ const defaultHeroImages = [
 ];
 
 function AdvertisingSpotlight() {
-  const activeCampaign = campaignSeed
-    .filter((campaign) => campaign.status === "activa" || campaign.status === "programada")
-    .sort((left, right) => left.priority - right.priority)[0];
-
-  if (!activeCampaign) return null;
-
-  const advertiser = advertiserSeed.find((item) => item.company === activeCampaign.advertiser) || advertiserSeed[0];
-
   return (
     <section className="promo-spotlight container">
       <div className="promo-spotlight-copy">
         <span className="eyebrow">PATROCINADOR DESTACADO</span>
-        <h2>{activeCampaign.name}</h2>
-        <p>{activeCampaign.description}</p>
+        <h2>Impulsa tu marca con Campofinder.</h2>
+        <p>Conecta tu marca con jugadores y comunidades que viven el fútbol.</p>
         <div className="promo-meta">
-          <span>{advertiser.company}</span>
-          <span>{activeCampaign.type}</span>
-          <span>{activeCampaign.space}</span>
+          <span>Audiencia futbolera</span>
+          <span>Espacios destacados</span>
         </div>
-        <a className="button button-dark" href={activeCampaign.landingUrl} target="_blank" rel="noreferrer">Descubrir oferta <span aria-hidden="true">↗</span></a>
       </div>
       <div className="promo-spotlight-visual">
-        <img src={activeCampaign.banner} alt={activeCampaign.name} />
+        <span className="promo-invite-kicker">UN ESPACIO PARA TU MARCA</span>
+        <p className="promo-invite-message">Aquí puede estar<br /><strong>tu marca.</strong></p>
+        <span className="promo-invite-contact">Contáctanos</span>
         <div className="promo-badge">PUBLICIDAD</div>
       </div>
     </section>

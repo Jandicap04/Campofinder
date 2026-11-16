@@ -170,14 +170,33 @@ main { flex: 1; }
 }
 .promo-spotlight-visual {
   position: relative;
+  display: grid;
+  align-content: center;
+  justify-items: start;
+  gap: 12px;
   overflow: hidden;
   min-height: 260px;
+  padding: 30px 34px;
+  color: #fff;
+  background:
+    radial-gradient(circle at 85% 20%, rgba(205, 239, 124, .25), transparent 38%),
+    linear-gradient(135deg, #173b2d, #245b3f);
 }
-.promo-spotlight-visual img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+.promo-invite-kicker {
+  color: var(--lime);
+  font: 700 10px var(--display);
+  letter-spacing: 1.5px;
+}
+.promo-invite-message {
+  margin: 0;
+  font: 600 clamp(30px, 3.4vw, 48px)/1.05 var(--display);
+  letter-spacing: -1.5px;
+}
+.promo-invite-message strong { color: var(--lime); }
+.promo-invite-contact {
+  color: rgba(255,255,255,.82);
+  font-size: 13px;
+  font-weight: 700;
 }
 .promo-badge {
   position: absolute;
@@ -613,6 +632,9 @@ main { flex: 1; }
   .court-grid { grid-template-columns: 1fr; gap: 15px; }
   .court-image-wrap { height: 220px; }
   .catalog-page, .admin-page, .reservations-page { padding-top: 45px; }
+  .promo-spotlight { grid-template-columns: 1fr; gap: 14px; padding-top: 24px; }
+  .promo-spotlight-copy { padding: 24px 21px; }
+  .promo-spotlight-visual { min-height: 210px; padding: 24px; }
   .catalog-heading { align-items: start; flex-direction: column; gap: 13px; }
   .catalog-heading h1 { font-size: 50px; }
   .catalog-heading > p { font-size: 12px; }
