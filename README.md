@@ -58,6 +58,10 @@ npm run preview
 
 La carpeta `frontend/dist` puede publicarse en cualquier servicio de hosting estático compatible con SPA. No hace falta arrancar un servidor Flask.
 
+### Desplegar en Vercel
+
+El archivo [`vercel.json`](vercel.json) configura Vercel para instalar las dependencias de `frontend/`, compilar con Vite y publicar `frontend/dist`; también permite recargar rutas internas de React Router. En **Project Settings → Environment Variables**, agrega `VITE_SUPABASE_URL` y `VITE_SUPABASE_PUBLISHABLE_KEY` para los entornos que vayas a desplegar. Deja **Root Directory** en la raíz del repositorio para que Vercel lea esta configuración.
+
 ## Datos y seguridad
 
 - Registro, inicio y cierre de sesión usan Supabase Auth desde React.
