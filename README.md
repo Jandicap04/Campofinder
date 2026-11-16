@@ -60,7 +60,7 @@ La carpeta `frontend/dist` puede publicarse en cualquier servicio de hosting est
 
 ### Desplegar en Vercel
 
-El archivo [`vercel.json`](vercel.json) configura Vercel para instalar las dependencias de `frontend/`, compilar con Vite y publicar `frontend/dist`; también permite recargar rutas internas de React Router. En **Project Settings → Environment Variables**, agrega `VITE_SUPABASE_URL` y `VITE_SUPABASE_PUBLISHABLE_KEY` para los entornos que vayas a desplegar. Deja **Root Directory** en la raíz del repositorio para que Vercel lea esta configuración.
+El archivo [`vercel.json`](vercel.json) configura Vercel para instalar las dependencias de `frontend/`, compilar con Vite y publicar `frontend/dist`; también permite recargar rutas internas de React Router. En **Project Settings → Environment Variables**, agrega `VITE_SUPABASE_URL` y `VITE_SUPABASE_PUBLISHABLE_KEY` para los entornos que vayas a desplegar. Deja **Root Directory** en la raíz del repositorio para que Vercel lea esta configuración. Si faltan las variables, el sitio muestra instrucciones en pantalla en lugar de quedar en blanco.
 
 ## Datos y seguridad
 

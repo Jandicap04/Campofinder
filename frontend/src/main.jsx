@@ -34,7 +34,7 @@ import {
   updateAdminUser,
   updateBlockedSlot,
 } from "./data";
-import { supabase } from "./supabase";
+import { isSupabaseConfigured, supabase } from "./supabase";
 import "./styles.css";
 
 const AuthContext = createContext(null);
@@ -1135,6 +1135,25 @@ function NotFound() {
   return <section className="empty-state not-found"><span className="eyebrow">404 — FUERA DE JUEGO</span><h1>No encontramos<br /><em>esa página.</em></h1><p>Pero sí podemos ayudarte a encontrar una cancha.</p><Link className="button button-dark" to="/catalogo">Ver canchas <span aria-hidden="true">↗</span></Link></section>;
 }
 
+function SupabaseConfigurationNotice() {
+  return (
+    <main className="configuration-page">
+      <section className="configuration-card" role="alert">
+        <span className="eyebrow">CONFIGURACIÓN PENDIENTE</span>
+        <h1>Conectemos<br /><em>Campofinder.</em></h1>
+        <p>El sitio ya está publicado, pero faltan las variables de conexión a Supabase en Vercel.</p>
+        <ol>
+          <li>Abre <strong>Project Settings → Environment Variables</strong> en Vercel.</li>
+          <li>Agrega <code>VITE_SUPABASE_URL</code> y <code>VITE_SUPABASE_PUBLISHABLE_KEY</code>.</li>
+          <li>Guarda los cambios y vuelve a desplegar el proyecto.</li>
+        </ol>
+      </section>
+    </main>
+  );
+}
+
 createRoot(document.getElementById("root")).render(
-  <React.StrictMode><App /></React.StrictMode>,
+  <React.StrictMode>
+    {isSupabaseConfigured ? <App /> : <SupabaseConfigurationNotice />}
+  </React.StrictMode>,
 );
